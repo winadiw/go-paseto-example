@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"go-paseto-example/httpcustom"
@@ -15,7 +14,7 @@ import (
 )
 
 type Admin struct {
-	ID       int
+	ID       string
 	Username string
 	Password string
 }
@@ -23,7 +22,7 @@ type Admin struct {
 // mockDB simulates a database
 var mockDB = map[string]Admin{
 	"admin@example.com": {
-		ID:       1,
+		ID:       "01J4V2JCKA6BJ4A9VEHSPMD25B",
 		Username: "admin@example.com",
 		Password: "", // We'll set this in main()
 	},
@@ -67,7 +66,7 @@ func loginAdmin(username, password string) (string, paseto.V4SymmetricKey, error
 	token.SetIssuer("your-app-name")
 	token.SetJti("identifier")
 	token.SetSubject("admin-auth")
-	token.SetString("admin_id", strconv.Itoa(admin.ID))
+	token.SetString("admin_id", admin.ID)
 
 	// Encrypt the token
 	encrypted := token.V4Encrypt(symmetricKey, nil)
