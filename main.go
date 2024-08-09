@@ -3,9 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
+	"strconv"
 	"time"
 
+	"go-paseto-example/httpcustom"
+
 	"aidanwoods.dev/go-paseto"
+	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -49,7 +54,7 @@ func loginAdmin(username, password string) (string, paseto.V4SymmetricKey, error
 	}
 
 	now := time.Now()
-	exp := now.Add(3 * time.Second)
+	exp := now.Add(120 * time.Minute)
 
 	// Create a new token
 	token := paseto.NewToken()
@@ -62,26 +67,13 @@ func loginAdmin(username, password string) (string, paseto.V4SymmetricKey, error
 	token.SetIssuer("your-app-name")
 	token.SetJti("identifier")
 	token.SetSubject("admin-auth")
-	token.SetString("admin_id", string(admin.ID))
+	token.SetString("admin_id", strconv.Itoa(admin.ID))
 
 	// Encrypt the token
 	encrypted := token.V4Encrypt(symmetricKey, nil)
 
 	fmt.Println("Symmetric Key (hex):", symmetricKey.ExportHex())
 	return encrypted, symmetricKey, nil
-}
-
-func validateToken(tokenString string, symmetricKey paseto.V4SymmetricKey) (*paseto.Token, error) {
-	parser := paseto.NewParser()
-	parser.AddRule(paseto.ForAudience("admin"))
-	parser.AddRule(paseto.IdentifiedBy("identifier"))
-	parser.AddRule(paseto.Subject("admin-auth"))
-	token, err := parser.ParseV4Local(symmetricKey, tokenString, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt token: %v", err)
-	}
-
-	return token, nil
 }
 
 func main() {
@@ -108,7 +100,7 @@ func main() {
 	// time.Sleep(5 * time.Second)
 
 	// Validate the generated token
-	validatedToken, err := validateToken(token, symmetricKey)
+	validatedToken, err := httpcustom.ValidateToken(token, symmetricKey)
 	if err != nil {
 		log.Fatalf("Token validation failed: %v", err)
 	}
@@ -133,4 +125,14 @@ func main() {
 		log.Fatalf("Failed to get expiration time from token: %v", err)
 	}
 	fmt.Printf("Token expires at: %v\n", expirationTime)
+
+	// Simulate a server, use middleware for validation
+	r := mux.NewRouter()
+
+	// Apply the middleware to a protected route
+	r.HandleFunc("/protected", httpcustom.PasetoAuthMiddleware(httpcustom.ProtectedHandler)).Methods("GET")
+
+	// Start the server
+	fmt.Println("Server starting on :8080")
+	http.ListenAndServe("127.0.0.1:8080", r)
 }
